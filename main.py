@@ -3,16 +3,17 @@ from typing import Optional, List
 from pydantic import BaseModel, Field
 from fastapi import FastAPI, Query
 
+# Created a FastAPI instance
 app = FastAPI()
 
-
+# Defined a Pydantic model for the trade details
 class TradeDetails(BaseModel):
     buySellIndicator: str = Field(
         description="A value of BUY for buys, SELL for sells.")
     price: float = Field(description="The price of the Trade.")
     quantity: int = Field(description="The amount of units traded.")
 
-
+# Defined a Pydantic model for the trade
 class Trade(BaseModel):
     asset_class: Optional[str] = Field(
         alias="assetClass", default=None, description="The asset class of the instrument traded. E.g. Bond, Equity, FX...etc")
@@ -30,7 +31,7 @@ class Trade(BaseModel):
                           description="The unique ID of the trade")
     trader: str = Field(description="The name of the Trader")
 
-
+# Defined a mock database class to simulate a database for storing trades
 class MockDB:
     def __init__(self):
         self.trades = []
@@ -88,16 +89,16 @@ class MockDB:
                 return True
         return False
 
-
+# Created an instance of the mock database
 mock_db = MockDB()
 
-
+# Created a POST endpoint for creating trades
 @app.post("/trades")
 def create_trade(trade: Trade):
     mock_db.add_trade(trade)
     return {"message": "Trade created successfully"}
 
-
+# Created a GET endpoint for filtering trades
 @app.get("/trades")
 def filter_trades(asset_class: str = None, start: dt.datetime = None, end: dt.datetime = None,
                   trade_type: str = None, min_price: float = None, max_price: float = None,
@@ -110,7 +111,7 @@ def filter_trades(asset_class: str = None, start: dt.datetime = None, end: dt.da
     results = results[offset:offset+limit]
     return {"total_results": total_results, "trades": results}
 
-
+# Created a GET endpoint for retrieving trades by ID
 @app.get("/trades/{trade_id}")
 def get_trade_by_id(trade_id: str):
     trade = mock_db.get_trade_by_id(trade_id)
@@ -119,7 +120,7 @@ def get_trade_by_id(trade_id: str):
     else:
         return {"error": "Trade not found"}
 
-
+# Created a GET endpoint for searching trades
 @app.get("/trades/search")
 async def search_trades(string: Optional[str] = None,
                         counter_party: Optional[str] = None,
@@ -145,7 +146,7 @@ async def search_trades(string: Optional[str] = None,
     else:
         return {"Trade not found"}
         
-
+# Created a PUT endpoint for updating trades
 @app.put("/trades/{trade_id}")
 async def update_trade(trade_id: str, trade: Trade):
     if mock_db.update_trade(trade_id, trade):
@@ -153,7 +154,7 @@ async def update_trade(trade_id: str, trade: Trade):
     else:
         return {"status": "failure", "msg": "Trade not found"}
 
-
+# Created a DELETE endpoint for deleting trades
 @app.delete("/trades/{trade_id}")
 async def delete_trade(trade_id: str):
     if mock_db.delete_trade(trade_id):
