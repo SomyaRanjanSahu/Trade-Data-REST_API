@@ -183,4 +183,20 @@ You can return your solution via email, or provide access to a Git repo. Please 
 
 <img src="https://i.postimg.cc/sg5LTrxY/ui.png" alt = "Swagger UI preview">
 
+### To run:
+
+<ol>
+    <li> Go to main.py file </li>
+    <li> Run the following command : </li>
+    <br>
+    
+    uvicorn main:app --reload  
+    
+                or
+    
+    python -m uvicorn main:app --reload   
+   
+    
+</ol>
+
 </details>
