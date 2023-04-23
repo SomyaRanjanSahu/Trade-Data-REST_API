@@ -5,20 +5,31 @@ from fastapi import FastAPI, Query
 
 app = FastAPI()
 
+
 class TradeDetails(BaseModel):
-    buySellIndicator: str = Field(description="A value of BUY for buys, SELL for sells.")
+    buySellIndicator: str = Field(
+        description="A value of BUY for buys, SELL for sells.")
     price: float = Field(description="The price of the Trade.")
     quantity: int = Field(description="The amount of units traded.")
 
+
 class Trade(BaseModel):
-    asset_class: Optional[str] = Field(alias="assetClass", default=None, description="The asset class of the instrument traded. E.g. Bond, Equity, FX...etc")
-    counterparty: Optional[str] = Field(default=None, description="The counterparty the trade was executed with. May not always be available")
-    instrument_id: str = Field(alias="instrumentId", description="The ISIN/ID of the instrument traded. E.g. TSLA, AAPL, AMZN...etc")
-    instrument_name: str = Field(alias="instrumentName", description="The name of the instrument traded.")
-    trade_date_time: dt.datetime = Field(alias="tradeDateTime", description="The date-time the Trade was executed")
-    trade_details: TradeDetails = Field(alias="tradeDetails", description="The details of the trade, i.e. price, quantity")
-    trade_id: str = Field(alias="tradeId", default=None, description="The unique ID of the trade")
+    asset_class: Optional[str] = Field(
+        alias="assetClass", default=None, description="The asset class of the instrument traded. E.g. Bond, Equity, FX...etc")
+    counterparty: Optional[str] = Field(
+        default=None, description="The counterparty the trade was executed with. May not always be available")
+    instrument_id: str = Field(
+        alias="instrumentId", description="The ISIN/ID of the instrument traded. E.g. TSLA, AAPL, AMZN...etc")
+    instrument_name: str = Field(
+        alias="instrumentName", description="The name of the instrument traded.")
+    trade_date_time: dt.datetime = Field(
+        alias="tradeDateTime", description="The date-time the Trade was executed")
+    trade_details: TradeDetails = Field(
+        alias="tradeDetails", description="The details of the trade, i.e. price, quantity")
+    trade_id: str = Field(alias="tradeId", default=None,
+                          description="The unique ID of the trade")
     trader: str = Field(description="The name of the Trader")
+
 
 class MockDB:
     def __init__(self):
@@ -40,21 +51,27 @@ class MockDB:
                 results.append(trade)
         return results
 
-    def filter_trades(self, asset_class: str = None, start: dt.datetime = None, end: dt.datetime = None, 
+    def filter_trades(self, asset_class: str = None, start: dt.datetime = None, end: dt.datetime = None,
                       trade_type: str = None, min_price: float = None, max_price: float = None) -> List[Trade]:
         results = self.trades
         if asset_class:
-            results = [trade for trade in results if trade.asset_class == asset_class]
+            results = [
+                trade for trade in results if trade.asset_class == asset_class]
         if start:
-            results = [trade for trade in results if trade.trade_date_time >= start]
+            results = [
+                trade for trade in results if trade.trade_date_time >= start]
         if end:
-            results = [trade for trade in results if trade.trade_date_time <= end]
+            results = [
+                trade for trade in results if trade.trade_date_time <= end]
         if trade_type:
-            results = [trade for trade in results if trade.trade_details.buySellIndicator == trade_type]
+            results = [
+                trade for trade in results if trade.trade_details.buySellIndicator == trade_type]
         if min_price:
-            results = [trade for trade in results if trade.trade_details.price >= min_price]
+            results = [
+                trade for trade in results if trade.trade_details.price >= min_price]
         if max_price:
-            results = [trade for trade in results if trade.trade_details.price <= max_price]
+            results = [
+                trade for trade in results if trade.trade_details.price <= max_price]
         return results
 
     def update_trade(self, trade_id: str, trade: Trade):
@@ -71,65 +88,75 @@ class MockDB:
                 return True
         return False
 
-db = MockDB()
+
+mock_db = MockDB()
+
 
 @app.post("/trades")
-async def create_trade(trade: Trade):
-    db.add_trade(trade)
-    return {"status": "success", "msg": "Trade added successfully"}
+def create_trade(trade: Trade):
+    mock_db.add_trade(trade)
+    return {"message": "Trade created successfully"}
+
+
+@app.get("/trades")
+def filter_trades(asset_class: str = None, start: dt.datetime = None, end: dt.datetime = None,
+                  trade_type: str = None, min_price: float = None, max_price: float = None,
+                  limit: int = 100, offset: int = 0, sort_by: str = None):
+    results = mock_db.filter_trades(asset_class=asset_class, start=start, end=end, trade_type=trade_type,
+                                    min_price=min_price, max_price=max_price)
+    total_results = len(results)
+    if sort_by:
+        results = sorted(results, key=lambda x: getattr(x, sort_by))
+    results = results[offset:offset+limit]
+    return {"total_results": total_results, "trades": results}
+
 
 @app.get("/trades/{trade_id}")
-async def get_trade(trade_id: str):
-    trade = db.get_trade_by_id(trade_id)
+def get_trade_by_id(trade_id: str):
+    trade = mock_db.get_trade_by_id(trade_id)
     if trade:
         return trade
     else:
-        return {"status": "failure", "msg": "Trade not found"}
+        return {"error": "Trade not found"}
 
-@app.get("/trades")
-async def search_trades(asset_class: Optional[str] = None,
-                        start: Optional[dt.datetime] = None,
-                        end: Optional[dt.datetime] = None,
-                        trade_type: Optional[str] = None,
-                        min_price: Optional[float] = None,
-                        max_price: Optional[float] = None,
-                        skip: int = 0,
-                        limit: int = 100,
-                        sort: Optional[str] = None):
-    results = db.filter_trades(asset_class=asset_class, start=start, end=end, trade_type=trade_type, 
-                               min_price=min_price, max_price=max_price)
 
-    total = len(results)
-    page = results[skip: skip + limit]
+@app.get("/trades/search")
+async def search_trades(string: Optional[str] = None,
+                        counter_party: Optional[str] = None,
+                        instrument_id: Optional[str] = None,
+                        instrument_name: Optional[str] = None,
+                        trader: Optional[str] = None):
 
-    if sort:
-        field, order = sort.split(":")
-        reverse = False if order == "asc" else True
-        page = sorted(page, key=lambda trade: getattr(trade, field), reverse=reverse)
-
-    return {"total": total, "page": page, "skip": skip, "limit": limit}
-
-@app.get("/trades/filter")
-async def filter_trades(asset_class: Optional[str] = None, start: Optional[dt.datetime] = None, 
-                        end: Optional[dt.datetime] = None, trade_type: Optional[str] = None, 
-                        min_price: Optional[float] = None, max_price: Optional[float] = None):
-    trades = db.filter_trades(asset_class=asset_class, start=start, end=end, trade_type=trade_type, 
-                              min_price=min_price, max_price=max_price)
-    if trades:
-        return trades
+    if string:
+        results = mock_db.search_trades(string)
+        return results
+    elif counter_party:
+        results = mock_db.search_trades(counter_party)
+        return results
+    elif instrument_id:
+        results = mock_db.search_trades(instrument_id)
+        return results
+    elif instrument_name:
+        results = mock_db.search_trades(instrument_name)
+        return results
+    elif trader:
+        results = mock_db.search_trades(trader)
+        return results
     else:
-        return {"status": "failure", "msg": "No trades found"}
+        return {"Trade not found"}
+        
 
 @app.put("/trades/{trade_id}")
 async def update_trade(trade_id: str, trade: Trade):
-    if db.update_trade(trade_id, trade):
+    if mock_db.update_trade(trade_id, trade):
         return {"status": "success", "msg": "Trade updated successfully"}
     else:
         return {"status": "failure", "msg": "Trade not found"}
 
+
 @app.delete("/trades/{trade_id}")
 async def delete_trade(trade_id: str):
-    if db.delete_trade(trade_id):
+    if mock_db.delete_trade(trade_id):
         return {"status": "success", "msg": "Trade deleted successfully"}
     else:
         return {"status": "failure", "msg": "Trade not found"}
